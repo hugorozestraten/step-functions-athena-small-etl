@@ -1,0 +1,503 @@
+{
+  "Comment": "An example of the Amazon States Language that runs an AWS Batch job and monitors the job until it completes.",
+  "StartAt": "LookupCustomerInfo",
+  "States": {
+    "LookupCustomerInfo": {
+      "Type": "Parallel",
+      "End": true,
+      "Branches": [
+ { "StartAt": "Alphastyle Stage",
+  "States": {
+    "Alphastyle Stage": {
+    "Type": "Task",
+    "Resource": "arn:aws:states:::lambda:invoke",
+    "Parameters": {
+    "FunctionName": "arn:aws:lambda:us-east-1:966389200925:function:athena_query_exec:$LATEST",
+    "Payload": {
+        "region": "us-east-1",
+  "database": "assinaturas_stg",
+  "bucket": "abd-useast1-stage",
+  "path": "athena_query_exec/regularoutput",
+  "deletebucket": "abd-useast1-stage",
+  "deletelocation": "assinaturas/alphastyle_enrich_stg/",
+  "drop":"DROP TABLE assinaturas_stg.alphastyle_enrich_stg",
+  "query": "CREATE TABLE assinaturas_stg.alphastyle_enrich_stg WITH (format='PARQUET',external_location='s3://abd-useast1-stage/assinaturas/alphastyle_enrich_stg') AS SELECT a.*,e.col2 as descricao FROM assinaturas_raw.vw_abd_alphastyle_raw a LEFT OUTER JOIN assinaturas_stg.alphastyle e ON a.camp_alpstyle = e.col1"
+                     }
+  },
+      "ResultPath": "$.taskresult",
+      "Next": "QueryResult"
+  },
+  "QueryResult": {
+    "Type": "Task",
+    "Resource": "arn:aws:lambda:us-east-1:966389200925:function:check_query_athena",
+    "InputPath" :"$.taskresult.Payload",
+    "ResultPath":"$.queryexec",
+    "Next": "IsQueryFinished"
+  },
+  "IsQueryFinished": {
+            "Type": "Choice",
+            "Choices": [
+                {
+                    "Variable": "$.queryexec",
+                    "StringEquals": "RUNNING",
+                    "Next": "wait_one_second"
+                },
+                {
+                    "Variable": "$.queryexec",
+                    "StringEquals": "QUEUED",
+                    "Next": "wait_3_second"
+                }
+            ],
+            "Default": "Done"
+        },
+    "wait_3_second": {
+        "Type": "Wait",
+        "Seconds": 3,
+        "Next": "QueryResult"
+    },
+   "wait_one_second": {
+        "Type": "Wait",
+        "Seconds": 1,
+        "Next": "QueryResult"
+    },
+   "Done": {
+            "Type": "Pass",
+            "End": true
+
+        }
+  }
+},
+        { "StartAt": "RevistaGrupo Stage",
+  "States": {
+    "RevistaGrupo Stage": {
+    "Type": "Task",
+    "Resource": "arn:aws:states:::lambda:invoke",
+    "Parameters": {
+    "FunctionName": "arn:aws:lambda:us-east-1:966389200925:function:athena_query_exec:$LATEST",
+    "Payload": {
+  "region": "us-east-1",
+  "database": "assinaturas_stg",
+  "bucket": "abd-useast1-stage",
+  "path": "athena_query_exec/regularoutput",
+  "deletebucket": "abd-useast1-stage",
+  "deletelocation": "DE_PARA_ASSINATURAS/revista_grupo/",
+  "drop": "DROP TABLE assinaturas_stg.revista_grupo",
+  "query": "CREATE TABLE assinaturas_stg.revista_grupo WITH (   format='PARQUET',   external_location='s3://abd-useast1-stage/DE_PARA_ASSINATURAS/revista_grupo/' ) AS SELECT r.col0 as revista_id, r.col1 as revista, g.col2 as grupo FROM assinaturas_stg.proj_revista r left outer join assinaturas_stg.grupo g ON r.col1=g.col1"
+}
+  },
+      "ResultPath": "$.taskresultrevg",
+      "Next": "QueryResultrevg"
+  },
+  "QueryResultrevg": {
+    "Type": "Task",
+    "Resource": "arn:aws:lambda:us-east-1:966389200925:function:check_query_athena",
+    "InputPath" :"$.taskresultrevg.Payload",
+    "ResultPath":"$.queryexecrevg",
+    "Next": "IsQueryFinishedrevg"
+  },
+  "IsQueryFinishedrevg": {
+            "Type": "Choice",
+            "Choices": [
+                {
+                    "Variable": "$.queryexecrevg",
+                    "StringEquals": "RUNNING",
+                    "Next": "wait_one_secondrevg"
+                },
+                {
+                    "Variable": "$.queryexecrevg",
+                    "StringEquals": "QUEUED",
+                    "Next": "wait_3_secondrevg"
+                }
+            ],
+            "Default": "Assinaturas Stage"
+        },
+    "wait_3_secondrevg": {
+        "Type": "Wait",
+        "Seconds": 3,
+        "Next": "QueryResultrevg"
+    },
+   "wait_one_secondrevg": {
+        "Type": "Wait",
+        "Seconds": 1,
+        "Next": "QueryResultrevg"
+    },
+
+    "Assinaturas Stage": {
+    "Type": "Task",
+    "Resource": "arn:aws:states:::lambda:invoke",
+    "Parameters": {
+    "FunctionName": "arn:aws:lambda:us-east-1:966389200925:function:athena_query_exec:$LATEST",
+    "Payload": {
+  "region": "us-east-1",
+  "database": "assinaturas_stg",
+  "bucket": "abd-useast1-stage",
+  "path": "athena_query_exec/regularoutput",
+  "deletebucket": "abd-useast1-stage",
+  "deletelocation": "assinaturas/assinaturas_enrich_stg/",
+  "drop":"DROP TABLE assinaturas_stg.assinaturas_enrich_stg",
+  "query": "CREATE TABLE assinaturas_stg.assinaturas_enrich_stg WITH ( format='PARQUET', external_location='s3://abd-useast1-stage/assinaturas/assinaturas_enrich_stg' ) AS SELECT a.*, CASE WHEN SUBSTR(fprom,1,2) = '31' THEN 'VDS_PESSOAIS' WHEN SUBSTR(fprom,1,4) = '31VE' THEN 'VDS_ESPECIAIS' WHEN SUBSTR(fprom,1,2) = '30' THEN 'MKTD' WHEN SUBSTR(fprom,1,2) = '32' THEN 'MKTD' WHEN SUBSTR(fprom,1,2) = '33' THEN 'MKTD' WHEN SUBSTR(fprom,1,2) = '34' THEN 'TLMKT' WHEN SUBSTR(fprom,1,2) = '37' THEN 'TLMKT' WHEN SUBSTR(fprom,1,2) = '41' THEN 'SAC' WHEN SUBSTR(fprom,1,2) = '36' THEN 'ACERTO_ATENDIMENTO' WHEN SUBSTR(fprom,1,2) = '39' THEN 'INTERNET' WHEN SUBSTR(fprom,1,2) = '40' THEN 'RETENCAO' ELSE 'OUTRO' END AS canal_venda, CASE WHEN SCODE = 'A' THEN 'INATIVO' WHEN SCODE = 'B' THEN 'INATIVO' WHEN SCODE = 'C' THEN 'INATIVO' WHEN SCODE = 'D' THEN 'ATIVO' WHEN SCODE = 'F' THEN 'ATIVO' WHEN SCODE = 'N' THEN 'INATIVO' WHEN SCODE = 'O' THEN 'INATIVO' WHEN SCODE = 'P' THEN 'ATIVO' WHEN SCODE = 'R' THEN 'INATIVO' WHEN SCODE = 'S' THEN 'INATIVO' ELSE SCODE END AS STATUS, CASE WHEN INVT='C' AND CCODE='DC' THEN 'DEBITO' WHEN INVT='C' AND CCODE <>'DC' THEN 'CARTAO_CREDITO' ELSE 'BOLETO' END AS FORMA_PAGAMENTO, g.revista as REVISTA, g.grupo as GRUPO_REVISTA FROM assinaturas_stg.assinaturas_stg a LEFT OUTER JOIN assinaturas_stg.revista_grupo g ON a.proj=g.revista_id"
+}
+  },
+      "ResultPath": "$.taskresultastg",
+      "Next": "QueryResultastg"
+  },
+  "QueryResultastg": {
+    "Type": "Task",
+    "Resource": "arn:aws:lambda:us-east-1:966389200925:function:check_query_athena",
+    "InputPath" :"$.taskresultastg.Payload",
+    "ResultPath":"$.queryexecastg",
+    "Next": "IsQueryFinishedastg"
+  },
+  "IsQueryFinishedastg": {
+            "Type": "Choice",
+            "Choices": [
+                {
+                    "Variable": "$.queryexecastg",
+                    "StringEquals": "RUNNING",
+                    "Next": "wait_one_secondastg"
+                },
+                {
+                    "Variable": "$.queryexecastg",
+                    "StringEquals": "QUEUED",
+                    "Next": "wait_3_secondastg"
+                }
+            ],
+            "Default": "Assinaturas Censo Email"
+        },
+    "wait_3_secondastg": {
+        "Type": "Wait",
+        "Seconds": 3,
+        "Next": "QueryResultastg"
+    },
+   "wait_one_secondastg": {
+        "Type": "Wait",
+        "Seconds": 1,
+        "Next": "QueryResultastg"
+    },
+
+
+
+
+        "Assinaturas Censo Email": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:966389200925:function:athena_query_exec:$LATEST",
+        "Payload": {
+        "region": "us-east-1",
+        "database": "analytics",
+        "bucket": "abd-useast1-analytics",
+        "path": "athena_query_exec/regularoutput",
+        "deletebucket": "abd-useast1-analytics",
+        "deletelocation": "assinaturas/tb_abd_assinaturas_censo_email/",
+        "drop":"DROP TABLE analytics.tb_abd_assinaturas_censo_email",
+        "query": "CREATE TABLE analytics.tb_abd_assinaturas_censo_email WITH ( format='PARQUET', external_location='s3://abd-useast1-analytics/assinaturas/tb_abd_assinaturas_censo_email/') AS SELECT a.*, c.renda_sm_10,c.fx_renda_sm_10,c.cod_setor,c.classe_social,e.email FROM assinaturas_stg.assinaturas_enrich_stg a LEFT OUTER JOIN assinaturas_stg.censo_enrich_stg c ON (a.num_dbm=c.num_dbm) LEFT OUTER JOIN assinaturas_stg.email_stg e ON (a.num_dbm=e.num_dbm)"
+        }
+        },
+          "ResultPath": "$.taskresultcenemal",
+          "Next": "QueryResultcenemal"
+        },
+        "QueryResultcenemal": {
+        "Type": "Task",
+        "Resource": "arn:aws:lambda:us-east-1:966389200925:function:check_query_athena",
+        "InputPath" :"$.taskresultcenemal.Payload",
+        "ResultPath":"$.queryexeccenemal",
+        "Next": "IsQueryFinishedcenemal"
+        },
+        "IsQueryFinishedcenemal": {
+                "Type": "Choice",
+                "Choices": [
+                    {
+                        "Variable": "$.queryexeccenemal",
+                        "StringEquals": "RUNNING",
+                        "Next": "wait_one_secondcenemal"
+                    },
+                    {
+                        "Variable": "$.queryexeccenemal",
+                        "StringEquals": "QUEUED",
+                        "Next": "wait_3_secondcenemal"
+                    }
+                ],
+                "Default": "Assinaturas CensoEmail Atendimento"
+            },
+        "wait_3_secondcenemal": {
+            "Type": "Wait",
+            "Seconds": 3,
+            "Next": "QueryResultcenemal"
+        },
+        "wait_one_secondcenemal": {
+            "Type": "Wait",
+            "Seconds": 1,
+            "Next": "QueryResultcenemal"
+        },
+
+
+
+
+            "Assinaturas CensoEmail Atendimento": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+            "FunctionName": "arn:aws:lambda:us-east-1:966389200925:function:athena_query_exec:$LATEST",
+            "Payload": {
+            "region": "us-east-1",
+            "database": "analytics",
+            "bucket": "abd-useast1-analytics",
+            "path": "athena_query_exec/regularoutput",
+            "deletebucket": "abd-useast1-analytics",
+            "deletelocation": "assinaturas/tb_abd_assinaturas_cns_eml_atdmt/",
+            "drop":"DROP TABLE analytics.tb_abd_assinaturas_cns_eml_atdmt",
+            "query": "CREATE TABLE analytics.tb_abd_assinaturas_cns_eml_atdmt WITH ( format='PARQUET', external_location='s3://abd-useast1-analytics/assinaturas/tb_abd_assinaturas_cns_eml_atdmt/' ) AS SELECT a.*, t.cod_usu_assistente_interacao, t.dat_fim_atendimento, t.dsc_motivo_atendimento, t.dsc_procedimento, t.dsc_tipo_contato, t.num_hra_fim_atendimento, t.num_hra_ini_atendimento, t.num_protocolo, t.num_protocolo_atendimento FROM analytics.tb_abd_assinaturas_censo_email a LEFT OUTER JOIN assinaturas_stg.atendimento_stg t ON (a.ACCNOASS=t.ACCNOASS)"
+            }
+            },
+              "ResultPath": "$.taskresultcenemalatt",
+              "Next": "QueryResultcenemalatt"
+            },
+            "QueryResultcenemalatt": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-east-1:966389200925:function:check_query_athena",
+            "InputPath" :"$.taskresultcenemalatt.Payload",
+            "ResultPath":"$.queryexeccenemalatt",
+            "Next": "IsQueryFinishedcenemalatt"
+            },
+            "IsQueryFinishedcenemalatt": {
+                    "Type": "Choice",
+                    "Choices": [
+                        {
+                            "Variable": "$.queryexeccenemalatt",
+                            "StringEquals": "RUNNING",
+                            "Next": "wait_one_secondcenemalatt"
+                        },
+                        {
+                            "Variable": "$.queryexeccenemalatt",
+                            "StringEquals": "QUEUED",
+                            "Next": "wait_3_secondcenemalatt"
+                        }
+                    ],
+                    "Default": "Donecenemalatt"
+                },
+            "wait_3_secondcenemalatt": {
+                "Type": "Wait",
+                "Seconds": 3,
+                "Next": "QueryResultcenemalatt"
+            },
+            "wait_one_secondcenemalatt": {
+                "Type": "Wait",
+                "Seconds": 1,
+                "Next": "QueryResultcenemalatt"
+            },
+            "Donecenemalatt": {
+                    "Type": "Pass",
+                    "End": true
+
+                }
+
+
+
+
+
+
+
+  }
+},
+
+
+
+{ "StartAt": "Censo Stage",
+"States": {
+"Censo Stage": {
+"Type": "Task",
+"Resource": "arn:aws:states:::lambda:invoke",
+"Parameters": {
+"FunctionName": "arn:aws:lambda:us-east-1:966389200925:function:athena_query_exec:$LATEST",
+"Payload": {
+"region": "us-east-1",
+"database": "assinaturas_stg",
+"bucket": "abd-useast1-stage",
+"path": "athena_query_exec/regularoutput",
+"deletebucket": "abd-useast1-stage",
+"deletelocation": "assinaturas/censo_enrich_stg/",
+"drop":"DROP TABLE assinaturas_stg.censo_enrich_stg",
+"query": "CREATE TABLE assinaturas_stg.censo_enrich_stg WITH (format='PARQUET', external_location='s3://abd-useast1-stage/assinaturas/censo_enrich_stg') AS SELECT c.*, CASE WHEN RENDA_SM_10 >= 15.01 AND RENDA_SM_10 <= 999.99 THEN 'A' WHEN RENDA_SM_10 >= 10.01 AND  RENDA_SM_10 <= 15.00 THEN 'B1' WHEN RENDA_SM_10 >= 6.01  AND  RENDA_SM_10 <= 10.00 THEN 'B2' WHEN RENDA_SM_10 >= 3.01  AND  RENDA_SM_10 <= 6.00 THEN 'C1' WHEN RENDA_SM_10 >= 2.01 AND RENDA_SM_10 <= 3.00 THEN 'C2' WHEN RENDA_SM_10 >= 0.00 AND  RENDA_SM_10 <= 2.00 THEN 'DE' END AS CLASSE_SOCIAL FROM assinaturas_raw.vw_abd_censo_raw c"
+             }
+},
+"ResultPath": "$.taskresultcenso",
+"Next": "QueryResultcenso"
+},
+"QueryResultcenso": {
+"Type": "Task",
+"Resource": "arn:aws:lambda:us-east-1:966389200925:function:check_query_athena",
+"InputPath" :"$.taskresultcenso.Payload",
+"ResultPath":"$.queryexeccenso",
+"Next": "IsQueryFinishedcenso"
+},
+"IsQueryFinishedcenso": {
+    "Type": "Choice",
+    "Choices": [
+        {
+            "Variable": "$.queryexeccenso",
+            "StringEquals": "RUNNING",
+            "Next": "wait_one_secondcenso"
+        },
+        {
+            "Variable": "$.queryexeccenso",
+            "StringEquals": "QUEUED",
+            "Next": "wait_3_secondcenso"
+        }
+    ],
+    "Default": "Donecenso"
+},
+"wait_3_secondcenso": {
+"Type": "Wait",
+"Seconds": 3,
+"Next": "QueryResultcenso"
+},
+"wait_one_secondcenso": {
+"Type": "Wait",
+"Seconds": 1,
+"Next": "QueryResultcenso"
+},
+"Donecenso": {
+    "Type": "Pass",
+    "End": true
+
+}
+}
+},
+
+
+
+{ "StartAt": "Atendimento Stage",
+"States": {
+"Atendimento Stage": {
+"Type": "Task",
+"Resource": "arn:aws:states:::lambda:invoke",
+"Parameters": {
+"FunctionName": "arn:aws:lambda:us-east-1:966389200925:function:athena_query_exec:$LATEST",
+"Payload": {
+"region": "us-east-1",
+"database": "assinaturas_stg",
+"bucket": "abd-useast1-stage",
+"path": "athena_query_exec/regularoutput",
+"deletebucket": "abd-useast1-stage",
+"deletelocation": "assinaturas/atendimento_stg/",
+"drop":"DROP TABLE assinaturas_stg.atendimento_stg",
+"query": "CREATE TABLE assinaturas_stg.atendimento_stg WITH ( format='PARQUET', external_location='s3://abd-useast1-stage/assinaturas/atendimento_stg' ) AS SELECT * FROM assinaturas_raw.vw_atendimento_raw"
+             }
+},
+"ResultPath": "$.taskresultatendimento",
+"Next": "QueryResultatendimento"
+},
+"QueryResultatendimento": {
+"Type": "Task",
+"Resource": "arn:aws:lambda:us-east-1:966389200925:function:check_query_athena",
+"InputPath" :"$.taskresultatendimento.Payload",
+"ResultPath":"$.queryexecatendimento",
+"Next": "IsQueryFinishedatendimento"
+},
+"IsQueryFinishedatendimento": {
+    "Type": "Choice",
+    "Choices": [
+        {
+            "Variable": "$.queryexecatendimento",
+            "StringEquals": "RUNNING",
+            "Next": "wait_one_secondatendimento"
+        },
+        {
+            "Variable": "$.queryexecatendimento",
+            "StringEquals": "QUEUED",
+            "Next": "wait_3_secondatendimento"
+        }
+    ],
+    "Default": "Doneatendimento"
+},
+"wait_3_secondatendimento": {
+"Type": "Wait",
+"Seconds": 3,
+"Next": "QueryResultatendimento"
+},
+"wait_one_secondatendimento": {
+"Type": "Wait",
+"Seconds": 1,
+"Next": "QueryResultatendimento"
+},
+"Doneatendimento": {
+    "Type": "Pass",
+    "End": true
+
+}
+}
+},
+
+
+
+
+
+{ "StartAt": "Email Stage",
+"States": {
+"Email Stage": {
+"Type": "Task",
+"Resource": "arn:aws:states:::lambda:invoke",
+"Parameters": {
+"FunctionName": "arn:aws:lambda:us-east-1:966389200925:function:athena_query_exec:$LATEST",
+"Payload": {
+"region": "us-east-1",
+"database": "assinaturas_stg",
+"bucket": "abd-useast1-stage",
+"path": "athena_query_exec/regularoutput",
+"deletebucket": "abd-useast1-stage",
+"deletelocation": "assinaturas/email_stg/",
+"drop":"DROP TABLE assinaturas_stg.email_stg",
+"query": "CREATE TABLE assinaturas_stg.email_stg WITH ( format='PARQUET', external_location='s3://abd-useast1-stage/assinaturas/email_stg' ) AS SELECT * FROM assinaturas_raw.vw_abd_email_raw"
+             }
+},
+"ResultPath": "$.taskresultemail_stg",
+"Next": "QueryResultemail_stg"
+},
+"QueryResultemail_stg": {
+"Type": "Task",
+"Resource": "arn:aws:lambda:us-east-1:966389200925:function:check_query_athena",
+"InputPath" :"$.taskresultemail_stg.Payload",
+"ResultPath":"$.queryexecemail_stg",
+"Next": "IsQueryFinishedemail_stg"
+},
+"IsQueryFinishedemail_stg": {
+    "Type": "Choice",
+    "Choices": [
+        {
+            "Variable": "$.queryexecemail_stg",
+            "StringEquals": "RUNNING",
+            "Next": "wait_one_secondemail_stg"
+        },
+        {
+            "Variable": "$.queryexecemail_stg",
+            "StringEquals": "QUEUED",
+            "Next": "wait_3_secondemail_stg"
+        }
+    ],
+    "Default": "Doneemail_stg"
+},
+"wait_3_secondemail_stg": {
+"Type": "Wait",
+"Seconds": 3,
+"Next": "QueryResultemail_stg"
+},
+"wait_one_secondemail_stg": {
+"Type": "Wait",
+"Seconds": 1,
+"Next": "QueryResultemail_stg"
+},
+"Doneemail_stg": {
+    "Type": "Pass",
+    "End": true
+
+}
+}
+}
+
+
+
+
+
+        ]
+    }}}
