@@ -12,7 +12,8 @@
       "database": "lab1",
       "bucket": "teste-delab1",
       "path": "athena_query_exec/regularoutput",
-        "query": "CREATE DATABASE lab1 IF NOT EXISTS"
+      "drop":"DROP DATABASE lab1",
+      "query": "CREATE DATABASE lab1"
                      }
   },
       "ResultPath": "$.taskresult",
