@@ -1,0 +1,331 @@
+{
+  "Comment": "Step Functions integration with Athena through Lambda Functions.",
+  "StartAt": "CreateDatabase",
+  "States": {
+    "CreateDatabase": {
+    "Type": "Task",
+    "Resource": "arn:aws:states:::lambda:invoke",
+    "Parameters": {
+    "FunctionName": "arn:aws:lambda:us-east-1:276147853833:function:exec_athena:$LATEST",
+    "Payload": {
+      "region": "us-east-1",
+      "database": "lab1",
+      "bucket": "teste-delab1",
+      "path": "athena_query_exec/regularoutput",
+        "query": "CREATE DATABASE lab1 IF NOT EXISTS"
+                     }
+  },
+      "ResultPath": "$.taskresult",
+      "Next": "finishcreatedb"
+  },
+  "finishcreatedb": {
+        "Type": "Wait",
+        "Seconds": 1,
+        "Next": "Done"
+  },
+   "Done": {
+            "Type": "Pass",
+            "Next": "MapData"
+        },
+
+
+
+
+    "MapData": {
+      "Type": "Parallel",
+      "Next": "TransactionSTG",
+      "ResultPath": "$.MapData",
+      "Branches": [
+        { "StartAt": "MapTableAccount",
+    "States": {
+        "MapTableAccount": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:276147853833:function:exec_athena:$LATEST",
+        "Payload": {
+          "region": "us-east-1",
+          "database": "lab1",
+          "bucket": "teste-delab1",
+          "drop":"DROP TABLE lab1.bank_account",
+          "path": "athena_query_exec/regularoutput",
+            "query": "CREATE  EXTERNAL TABLE lab1.bank_account(  account_id bigint,   district_id bigint,   frequency string,   date bigint) ROW FORMAT DELIMITED   FIELDS TERMINATED BY '\\;'  STORED AS INPUTFORMAT   'org.apache.hadoop.mapred.TextInputFormat'  OUTPUTFORMAT   'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' LOCATION  's3:\/\/hhug-bank\/processed\/account\/' TBLPROPERTIES (  'compressionType'='none',   'delimiter'='\\;', 'skip.header.line.count'='1', 'typeOfData'='file')"
+                         }
+      },
+          "ResultPath": "$.taskresultmaptbaccount",
+          "Next": "finishmaptbaccount"
+      },
+      "finishmaptbaccount": {
+            "Type": "Wait",
+            "Seconds": 1,
+            "Next": "Donemaptbaccount"
+      },
+       "Donemaptbaccount": {
+                "Type": "Pass",
+                "End": true
+            }
+    }
+
+  },
+
+
+    {
+      "StartAt": "MapTableDistrict",
+    "States": {
+    "MapTableDistrict": {
+    "Type": "Task",
+    "Resource": "arn:aws:states:::lambda:invoke",
+    "Parameters": {
+    "FunctionName": "arn:aws:lambda:us-east-1:276147853833:function:exec_athena:$LATEST",
+    "Payload": {
+      "region": "us-east-1",
+      "database": "lab1",
+      "bucket": "teste-delab1",
+      "drop":"DROP TABLE lab1.bank_district_w_loc",
+      "path": "athena_query_exec/regularoutput",
+        "query": "CREATE  EXTERNAL TABLE bank_district_w_loc(  id bigint, a2 string, a3 string, lat double, long double, a4 bigint, a5 bigint, a6 bigint, a7 bigint, a8 bigint, a9 bigint, a10 double, a11 bigint, a12 string, a13 double, a14 bigint, a15 string, a16 bigint) ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' STORED AS INPUTFORMAT   'org.apache.hadoop.mapred.TextInputFormat'  OUTPUTFORMAT   'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' LOCATION  's3://hhug-bank/processed/district_w_loc/'  TBLPROPERTIES (  'classification'='csv', 'columnsOrdered'='true',   'compressionType'='none',   'delimiter'=',',   'skip.header.line.count'='1',   'typeOfData'='file')"
+                     }
+    },
+      "ResultPath": "$.taskresultmaptbdistrict",
+      "Next": "finishmaptbdistrict"
+    },
+    "finishmaptbdistrict": {
+        "Type": "Wait",
+        "Seconds": 1,
+        "Next": "Donemaptbdistrict"
+    },
+    "Donemaptbdistrict": {
+            "Type": "Pass",
+            "End": true
+        }
+    }
+
+    },
+
+{
+  "StartAt": "MapTableTransac",
+"States": {
+"MapTableTransac": {
+"Type": "Task",
+"Resource": "arn:aws:states:::lambda:invoke",
+"Parameters": {
+"FunctionName": "arn:aws:lambda:us-east-1:276147853833:function:exec_athena:$LATEST",
+"Payload": {
+  "region": "us-east-1",
+  "database": "lab1",
+  "bucket": "teste-delab1",
+  "drop":"DROP TABLE lab1.bank_trans",
+  "path": "athena_query_exec/regularoutput",
+    "query": "CREATE  EXTERNAL TABLE bank_trans(  trans_id bigint,   account_id bigint,   date bigint,   type string,   operation string,   amount double,   k_symbol string,   bank string,   account bigint) ROW FORMAT DELIMITED   FIELDS TERMINATED BY '\\;' STORED AS INPUTFORMAT   'org.apache.hadoop.mapred.TextInputFormat' OUTPUTFORMAT   'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' LOCATION  's3:\/\/hhug-bank\/processed\/trans\/' TBLPROPERTIES (  'compressionType'='none',   'delimiter'='\\;', 'skip.header.line.count'='1', 'typeOfData'='file')"
+                 }
+},
+  "ResultPath": "$.taskresultmaptbtransac",
+  "Next": "finishmaptbtransac"
+},
+"finishmaptbtransac": {
+    "Type": "Wait",
+    "Seconds": 2,
+    "Next": "Donemaptbtransac"
+},
+"Donemaptbtransac": {
+        "Type": "Pass",
+        "End": true
+    }
+}
+
+}
+
+]
+},
+
+
+
+        "TransactionSTG": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+            "FunctionName": "arn:aws:lambda:us-east-1:276147853833:function:exec_athena:$LATEST",
+            "Payload": {
+              "region": "us-east-1",
+              "database": "lab1",
+              "bucket": "teste-delab1",
+              "path": "athena_query_exec/regularoutput",
+              "deletebucket": "teste-delab1",
+              "deletelocation": "staging/transaction_stg/",
+              "drop":"DROP TABLE lab1.transaction_stg",
+              "query": "CREATE TABLE lab1.transaction_stg WITH (  format='PARQUET',  external_location='s3:\/\/teste-delab1\/staging\/transaction_stg\/' ) AS SELECT * FROM lab1.bank_trans "
+            }
+          },
+              "ResultPath": "$.taskresulttran",
+              "Next": "QueryResulttran",
+              "InputPath": "$.MapData"
+          },
+          "QueryResulttran": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-east-1:276147853833:function:check_athena_exec:$LATEST",
+            "InputPath" :"$.taskresulttran.Payload",
+            "ResultPath":"$.queryexectran",
+            "Next": "IsQueryFinishedtran"
+          },
+          "IsQueryFinishedtran": {
+                    "Type": "Choice",
+                    "Choices": [
+                        {
+                            "Variable": "$.queryexectran",
+                            "StringEquals": "RUNNING",
+                            "Next": "wait_one_secondtran"
+                        },
+                        {
+                            "Variable": "$.queryexectran",
+                            "StringEquals": "QUEUED",
+                            "Next": "wait_3_secondtran"
+                        }
+                    ],
+                    "Default": "Donetran"
+                },
+            "wait_3_secondtran": {
+                "Type": "Wait",
+                "Seconds": 3,
+                "Next": "QueryResulttran"
+            },
+           "wait_one_secondtran": {
+                "Type": "Wait",
+                "Seconds": 1,
+                "Next": "QueryResulttran"
+            },
+            "Donetran": {
+                                  "Type": "Pass",
+                                  "Next": "AccountLocationSTG"
+            }
+
+
+
+
+
+      ,
+      "AccountLocationSTG": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+              "FunctionName": "arn:aws:lambda:us-east-1:276147853833:function:exec_athena:$LATEST",
+              "Payload": {
+                "region": "us-east-1",
+                "database": "lab1",
+                "bucket": "teste-delab1",
+                "path": "athena_query_exec/regularoutput",
+                "deletebucket": "teste-delab1",
+                "deletelocation": "staging/account_location_stg/",
+                "drop":"DROP TABLE lab1.account_location_stg",
+                "query": "CREATE TABLE lab1.account_location_stg WITH (  format='PARQUET',  external_location='s3:\/\/teste-delab1\/staging\/account_location_stg\/' ) AS select ac.*, di.lat, di.long from bank_account ac  left outer join bank_district_w_loc di on ac.district_id = di.id"
+              }
+            },
+                "ResultPath": "$.taskresultdistloc",
+                "Next": "QueryResultdistloc",
+                "InputPath": "$.MapData"
+            },
+            "QueryResultdistloc": {
+              "Type": "Task",
+              "Resource": "arn:aws:lambda:us-east-1:276147853833:function:check_athena_exec:$LATEST",
+              "InputPath" :"$.taskresultdistloc.Payload",
+              "ResultPath":"$.queryexecdistloc",
+              "Next": "IsQueryFinisheddistloc"
+            },
+            "IsQueryFinisheddistloc": {
+                      "Type": "Choice",
+                      "Choices": [
+                          {
+                              "Variable": "$.queryexecdistloc",
+                              "StringEquals": "RUNNING",
+                              "Next": "wait_one_seconddistloc"
+                          },
+                          {
+                              "Variable": "$.queryexecdistloc",
+                              "StringEquals": "QUEUED",
+                              "Next": "wait_3_seconddistloc"
+                          }
+                      ],
+                      "Default": "Donedistloc"
+                  },
+              "wait_3_seconddistloc": {
+                  "Type": "Wait",
+                  "Seconds": 3,
+                  "Next": "QueryResultdistloc"
+              },
+             "wait_one_seconddistloc": {
+                  "Type": "Wait",
+                  "Seconds": 1,
+                  "Next": "QueryResultdistloc"
+              },
+              "Donedistloc": {
+                                    "Type": "Pass",
+                                    "Next": "trans_w_location_analytics"
+              },
+
+              "trans_w_location_analytics": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "Parameters": {
+                      "FunctionName": "arn:aws:lambda:us-east-1:276147853833:function:exec_athena:$LATEST",
+                      "Payload": {
+                        "region": "us-east-1",
+                        "database": "lab1",
+                        "bucket": "teste-delab1",
+                        "path": "athena_query_exec/regularoutput",
+                        "deletebucket": "teste-delab1",
+                        "deletelocation": "analytics/trans_w_location_analytics/",
+                        "drop":"DROP TABLE lab1.trans_w_location_analytics",
+                        "query": "CREATE TABLE lab1.trans_w_location_analytics WITH (  format='PARQUET',  external_location='s3:\/\/teste-delab1\/analytics\/trans_w_location_analytics\/' ) AS select t.* , a.district_id, a.frequency,  a.lat, a.long from transaction_stg t left outer join  account_location_stg a on t.account_id = a.account_id"
+                      }
+                    },
+                        "ResultPath": "$.taskresultanalytics",
+                        "Next": "QueryResultanalytics",
+                        "InputPath": "$.MapData"
+                    },
+                    "QueryResultanalytics": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:lambda:us-east-1:276147853833:function:check_athena_exec:$LATEST",
+                      "InputPath" :"$.taskresultanalytics.Payload",
+                      "ResultPath":"$.queryexecanalytics",
+                      "Next": "IsQueryFinishedanalytics"
+                    },
+                    "IsQueryFinishedanalytics": {
+                              "Type": "Choice",
+                              "Choices": [
+                                  {
+                                      "Variable": "$.queryexecanalytics",
+                                      "StringEquals": "RUNNING",
+                                      "Next": "wait_one_secondanalytics"
+                                  },
+                                  {
+                                      "Variable": "$.queryexecanalytics",
+                                      "StringEquals": "QUEUED",
+                                      "Next": "wait_3_secondanalytics"
+                                  }
+                              ],
+                              "Default": "Doneanalytics"
+                          },
+                      "wait_3_secondanalytics": {
+                          "Type": "Wait",
+                          "Seconds": 3,
+                          "Next": "QueryResultanalytics"
+                      },
+                     "wait_one_secondanalytics": {
+                          "Type": "Wait",
+                          "Seconds": 1,
+                          "Next": "QueryResultanalytics"
+                      },
+                      "Doneanalytics": {
+                                            "Type": "Pass",
+                                            "End": true
+                      }
+
+
+
+
+
+
+
+
+
+}
+}

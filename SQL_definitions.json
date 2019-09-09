@@ -1,0 +1,72 @@
+create database
+{
+  "region": "us-east-1",
+  "database": "lab1",
+  "bucket": "teste-delab1",
+  "path": "athena_query_exec/regularoutput",
+    "query": "CREATE DATABASE lab1 IF NOT EXISTS"
+                 }
+
+map tables in parallel
+ {
+  "region": "us-east-1",
+  "database": "lab1",
+  "bucket": "teste-delab1",
+  "drop":"DROP TABLE lab1.bank_account",
+  "path": "athena_query_exec/regularoutput",
+    "query": "CREATE  EXTERNAL TABLE lab1.bank_account(  account_id bigint,   district_id bigint,   frequency string,   date bigint) ROW FORMAT DELIMITED   FIELDS TERMINATED BY '\\;'  STORED AS INPUTFORMAT   'org.apache.hadoop.mapred.TextInputFormat'  OUTPUTFORMAT   'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' LOCATION  's3:\/\/hhug-bank\/processed\/account\/' TBLPROPERTIES (  'compressionType'='none',   'delimiter'='\\;', 'skip.header.line.count'='1', 'typeOfData'='file')"
+                 }
+
+  {
+    "region": "us-east-1",
+    "database": "lab1",
+    "bucket": "teste-delab1",
+    "drop":"DROP TABLE lab1.bank_district_w_loc",
+    "path": "athena_query_exec/regularoutput",
+      "query": "CREATE  EXTERNAL TABLE bank_district_w_loc(  id bigint, a2 string, a3 string, lat double, long double, a4 bigint, a5 bigint, a6 bigint, a7 bigint, a8 bigint, a9 bigint, a10 double, a11 bigint, a12 string, a13 double, a14 bigint, a15 string, a16 bigint) ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' STORED AS INPUTFORMAT   'org.apache.hadoop.mapred.TextInputFormat'  OUTPUTFORMAT   'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' LOCATION  's3://hhug-bank/processed/district_w_loc/'  TBLPROPERTIES (  'classification'='csv', 'columnsOrdered'='true',   'compressionType'='none',   'delimiter'=',',   'skip.header.line.count'='1',   'typeOfData'='file')"
+                   }
+
+  {
+  "region": "us-east-1",
+  "database": "lab1",
+  "bucket": "teste-delab1",
+  "drop":"DROP TABLE lab1.bank_trans",
+  "path": "athena_query_exec/regularoutput",
+    "query": "CREATE  EXTERNAL TABLE bank_trans(  trans_id bigint,   account_id bigint,   date bigint,   type string,   operation string,   amount double,   k_symbol string,   bank string,   account bigint) ROW FORMAT DELIMITED   FIELDS TERMINATED BY '\\;' STORED AS INPUTFORMAT   'org.apache.hadoop.mapred.TextInputFormat' OUTPUTFORMAT   'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' LOCATION  's3:\/\/hhug-bank\/processed\/trans\/' TBLPROPERTIES (  'compressionType'='none',   'delimiter'='\\;', 'skip.header.line.count'='1', 'typeOfData'='file')"
+                 }
+
+create staging table - PARQUET
+{
+  "region": "us-east-1",
+  "database": "lab1",
+  "bucket": "teste-delab1",
+  "path": "athena_query_exec/regularoutput",
+  "deletebucket": "teste-delab1",
+  "deletelocation": "staging/transaction_stg/",
+  "drop":"DROP TABLE lab1.transaction_stg",
+  "query": "CREATE TABLE lab1.transaction_stg WITH (  format='PARQUET',  external_location='s3:\/\/teste-delab1\/staging\/transaction_stg\/' ) AS SELECT * FROM lab1.bank_trans "
+}
+
+
+{
+  "region": "us-east-1",
+  "database": "lab1",
+  "bucket": "teste-delab1",
+  "path": "athena_query_exec/regularoutput",
+  "deletebucket": "teste-delab1",
+  "deletelocation": "staging/account_location_stg/",
+  "drop":"DROP TABLE lab1.account_location_stg",
+  "query": "CREATE TABLE lab1.account_location_stg WITH (  format='PARQUET',  external_location='s3:\/\/teste-delab1\/staging\/account_location_stg\/' ) AS select ac.*, di.lat, di.long from bank_account ac  left outer join bank_district_w_loc di on ac.district_id = di.id"
+}
+
+create analytics table
+{
+  "region": "us-east-1",
+  "database": "lab1",
+  "bucket": "teste-delab1",
+  "path": "athena_query_exec/regularoutput",
+  "deletebucket": "teste-delab1",
+  "deletelocation": "analytics/trans_w_location_analytics/",
+  "drop":"DROP TABLE lab1.trans_w_location_analytics",
+  "query": "CREATE TABLE lab1.trans_w_location_analytics WITH (  format='PARQUET',  external_location='s3:\/\/teste-delab1\/analytics\/trans_w_location_analytics\/' ) AS select t.* , a.district_id, a.frequency,  a.lat, a.long from transaction_stg t left outer join  account_location_stg a on t.account_id = a.account_id"
+}

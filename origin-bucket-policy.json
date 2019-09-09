@@ -1,0 +1,45 @@
+{
+ "Version": "2012-10-17",
+ "Id": "MyPolicyID",
+ "Statement": [{
+   "Sid": "MyStatementSid",
+   "Effect": "Allow",
+   "Principal": {
+     "AWS": [
+     "arn:aws:iam::276147853833:root",
+     "arn:aws:iam::751153547810:root",
+     "arn:aws:iam::302866681092:root",
+     "arn:aws:iam::757054781754:root",
+     "arn:aws:iam::134017544161:root",
+     "arn:aws:iam::697261767636:root",
+     "arn:aws:iam::615310126525:root",
+     "arn:aws:iam::372038897862:root",
+     "arn:aws:iam::417545442835:root",
+     "arn:aws:iam::050620563954:root",
+     "arn:aws:iam::921204668159:root",
+     "arn:aws:iam::711252964175:root",
+     "arn:aws:iam::845684338863:root",
+     "arn:aws:iam::098382759045:root",
+     "arn:aws:iam::642325870416:root",
+     "arn:aws:iam::119400519118:root",
+     "arn:aws:iam::232990827507:root",
+     "arn:aws:iam::122113789147:root",
+     "arn:aws:iam::282118092737:root",
+     "arn:aws:iam::531250593540:root",
+     "arn:aws:iam::565883624759:root"
+   ]},
+   "Action": [
+     "s3:GetBucketLocation",
+     "s3:GetObject",
+     "s3:ListBucket",
+     "s3:ListBucketMultipartUploads",
+     "s3:ListMultipartUploadParts",
+     "s3:AbortMultipartUpload",
+     "s3:PutObject"
+   ],
+   "Resource": [
+     "arn:aws:s3:::hhug-bank",
+     "arn:aws:s3:::hhug-bank/*"
+   ]
+ }]
+}
